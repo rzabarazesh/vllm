@@ -78,6 +78,12 @@ def llm(request):
         raise ValueError(f"Unknown backend: {backend_name}")
 
 
+@pytest.fixture(scope="function", autouse=True)
+def use_v1_only(monkeypatch):
+    # Guided Decoding is only supported on V1
+    monkeypatch.setenv('VLLM_USE_V1', '1')
+
+
 # Separate backends which support grammars vs ones
 # which only support regex based constraints in tests.
 GRAMMAR_DECODING_BACKENDS = [

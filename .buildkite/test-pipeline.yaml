@@ -5,6 +5,9 @@
 # https://github.com/vllm-project/buildkite-ci/blob/main/scripts/test-template-aws.j2
 # to generate the final pipeline yaml file.
 
+# Coverage configuration: All pytest commands will generate coverage reports
+# Each step will generate a unique coverage file to avoid conflicts
+
 # Documentation
 # label(str): the name of the test. emoji allowed.
 # fast_check(bool): whether to run this on each commit on fastcheck pipeline.
@@ -64,14 +67,16 @@ steps:
   - tests/standalone_tests/lazy_imports.py
   commands:
   - python3 standalone_tests/lazy_imports.py
-  - pytest -v -s mq_llm_engine # MQLLMEngine
-  - pytest -v -s async_engine # AsyncLLMEngine
-  - NUM_SCHEDULER_STEPS=4 pytest -v -s async_engine/test_async_llm_engine.py
-  - pytest -v -s test_inputs.py
-  - pytest -v -s test_outputs.py
-  - pytest -v -s multimodal
-  - pytest -v -s test_utils.py # Utils
-  - pytest -v -s worker # Worker
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= mq_llm_engine # MQLLMEngine
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= --cov-append async_engine # AsyncLLMEngine
+  - COVERAGE_FILE=.coverage.async_engine NUM_SCHEDULER_STEPS=4 pytest -v -s --cov=vllm --cov-report= --cov-append async_engine/test_async_llm_engine.py
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= --cov-append test_inputs.py
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= --cov-append test_outputs.py
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= --cov-append multimodal
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= --cov-append test_utils.py # Utils
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= --cov-append worker # Worker
+  artifact_paths:
+    - ".coverage.async_engine"
 
 - label: Python-only Installation Test
   mirror_hardwares: [amdexperimental]
@@ -93,10 +98,12 @@ steps:
   - tests/basic_correctness/test_cumem.py
   commands:
   - export VLLM_WORKER_MULTIPROC_METHOD=spawn
-  - pytest -v -s basic_correctness/test_cumem.py
-  - pytest -v -s basic_correctness/test_basic_correctness.py
-  - pytest -v -s basic_correctness/test_cpu_offload.py
-  - VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 pytest -v -s basic_correctness/test_preemption.py
+  - COVERAGE_FILE=.coverage.basic_correctness pytest -v -s --cov=vllm --cov-report= basic_correctness/test_cumem.py
+  - COVERAGE_FILE=.coverage.basic_correctness pytest -v -s --cov=vllm --cov-report= --cov-append basic_correctness/test_basic_correctness.py
+  - COVERAGE_FILE=.coverage.basic_correctness pytest -v -s --cov=vllm --cov-report= --cov-append basic_correctness/test_cpu_offload.py
+  - COVERAGE_FILE=.coverage.basic_correctness VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 pytest -v -s --cov=vllm --cov-report= --cov-append basic_correctness/test_preemption.py
+  artifact_paths:
+    - ".coverage.basic_correctness"
 
 - label: Chunked Prefill Test
   mirror_hardwares: [amdexperimental, amdproduction]
@@ -104,8 +111,10 @@ steps:
   - vllm/
   - tests/basic_correctness/test_chunked_prefill
   commands:
-  - VLLM_ATTENTION_BACKEND=XFORMERS pytest -v -s basic_correctness/test_chunked_prefill.py
-  - VLLM_ATTENTION_BACKEND=FLASH_ATTN pytest -v -s basic_correctness/test_chunked_prefill.py
+  - COVERAGE_FILE=.coverage.chunked_prefill VLLM_ATTENTION_BACKEND=XFORMERS pytest -v -s --cov=vllm --cov-report= basic_correctness/test_chunked_prefill.py
+  - COVERAGE_FILE=.coverage.chunked_prefill VLLM_ATTENTION_BACKEND=FLASH_ATTN pytest -v -s --cov=vllm --cov-report= --cov-append basic_correctness/test_chunked_prefill.py
+  artifact_paths:
+    - ".coverage.chunked_prefill"
 
 - label: Core Test # 10min
   mirror_hardwares: [amdexperimental, amdproduction]
@@ -115,7 +124,9 @@ steps:
   - vllm/distributed
   - tests/core
   commands:
-  - pytest -v -s core
+  - COVERAGE_FILE=.coverage.core pytest -v -s --cov=vllm --cov-report= core
+  artifact_paths:
+    - ".coverage.core"
 
 - label: Entrypoints Test (LLM) # 40min
   mirror_hardwares: [amdexperimental]
@@ -128,10 +139,12 @@ steps:
   - tests/entrypoints/offline_mode
   commands:
   - export VLLM_WORKER_MULTIPROC_METHOD=spawn
-  - pytest -v -s entrypoints/llm  --ignore=entrypoints/llm/test_generate.py --ignore=entrypoints/llm/test_generate_multiple_loras.py --ignore=entrypoints/llm/test_collective_rpc.py
-  - pytest -v -s entrypoints/llm/test_generate.py # it needs a clean process
-  - pytest -v -s entrypoints/llm/test_generate_multiple_loras.py # it needs a clean process
-  - VLLM_USE_V1=0 pytest -v -s entrypoints/offline_mode # Needs to avoid interference with other tests
+  - COVERAGE_FILE=.coverage.entrypoints_llm pytest -v -s --cov=vllm --cov-report= entrypoints/llm  --ignore=entrypoints/llm/test_generate.py --ignore=entrypoints/llm/test_generate_multiple_loras.py --ignore=entrypoints/llm/test_collective_rpc.py
+  - COVERAGE_FILE=.coverage.entrypoints_llm pytest -v -s --cov=vllm --cov-report= --cov-append entrypoints/llm/test_generate.py # it needs a clean process
+  - COVERAGE_FILE=.coverage.entrypoints_llm pytest -v -s --cov=vllm --cov-report= --cov-append entrypoints/llm/test_generate_multiple_loras.py # it needs a clean process
+  - COVERAGE_FILE=.coverage.entrypoints_llm VLLM_USE_V1=0 pytest -v -s --cov=vllm --cov-report= --cov-append entrypoints/offline_mode # Needs to avoid interference with other tests
+  artifact_paths:
+    - ".coverage.entrypoints_llm"
 
 - label: Entrypoints Test (API Server) # 40min
   mirror_hardwares: [amdexperimental]
@@ -144,8 +157,10 @@ steps:
   - tests/entrypoints/test_chat_utils
   commands:
   - export VLLM_WORKER_MULTIPROC_METHOD=spawn
-  - pytest -v -s entrypoints/openai --ignore=entrypoints/openai/test_chat_with_tool_reasoning.py --ignore=entrypoints/openai/test_oot_registration.py --ignore=entrypoints/openai/test_tensorizer_entrypoint.py --ignore=entrypoints/openai/correctness/
-  - pytest -v -s entrypoints/test_chat_utils.py
+  - COVERAGE_FILE=.coverage.entrypoints_openai pytest -v -s --cov=vllm --cov-report= entrypoints/openai --ignore=entrypoints/openai/test_chat_with_tool_reasoning.py --ignore=entrypoints/openai/test_oot_registration.py --ignore=entrypoints/openai/test_tensorizer_entrypoint.py --ignore=entrypoints/openai/correctness/
+  - COVERAGE_FILE=.coverage.entrypoints_openai pytest -v -s --cov=vllm --cov-report= --cov-append entrypoints/test_chat_utils.py
+  artifact_paths:
+    - ".coverage.entrypoints_openai"
 
 - label: Distributed Tests (4 GPUs) # 10min
   mirror_hardwares: [amdexperimental]
@@ -233,8 +248,10 @@ steps:
   - tests/test_regression
   commands:
   - pip install modelscope
-  - pytest -v -s test_regression.py
+  - COVERAGE_FILE=.coverage.regression pytest -v -s --cov=vllm --cov-report= test_regression.py
   working_dir: "/vllm-workspace/tests" # optional
+  artifact_paths:
+    - ".coverage.regression"
 
 - label: Engine Test # 10min
   mirror_hardwares: [amdexperimental]
@@ -640,6 +657,26 @@ steps:
     - python3 examples/offline_inference/basic/chat.py
     - python3 examples/offline_inference/audio_language.py --model-type whisper
     - python3 examples/offline_inference/vision_language.py --model-type qwen2_5_vl
+
+- label: Coverage Report Collection
+  depends_on: "*"
+  working_dir: "/vllm-workspace/"
+  commands:
+    - echo "Collecting coverage reports from all test steps..."
+    - echo "Downloading coverage artifacts from previous steps..."
+    - buildkite-agent artifact download ".coverage.*" . || true
+    - ls -la .coverage.* || echo "No coverage files found"
+    - echo "Combining coverage data..."
+    - coverage combine .coverage.* || true
+    - echo "Generating coverage reports..."
+    - coverage report --show-missing || true
+    - coverage html -d htmlcov_combined || true
+    - coverage xml -o coverage_combined.xml || true
+    - echo "Coverage reports generated:"
+    - ls -la coverage_combined.xml htmlcov_combined/ || true
+  artifact_paths:
+    - "coverage_combined.xml"
+    - "htmlcov_combined/**/*"
 
 #####  1 GPU test  #####
 #####  multi gpus test  #####

@@ -1,0 +1,68 @@
+# Modified VLLM CI Pipeline with Test Coverage
+# This is a simplified version for generating test coverage reports
+
+steps:
+##### Test Coverage Pipeline - Modified Steps #####
+
+- label: "Core Test (Coverage)" # 10min
+  mirror_hardwares: [amdexperimental]  
+  fast_check: true
+  source_file_dependencies:
+  - vllm/core
+  - vllm/distributed
+  - tests/core
+  commands:
+  - COVERAGE_FILE=.coverage.core pytest -v -s --cov=vllm --cov-report= core
+
+- label: "Async Engine, Inputs, Utils, Worker Test (Coverage)" # 24min
+  mirror_hardwares: [amdexperimental]
+  source_file_dependencies:
+  - vllm/
+  - tests/mq_llm_engine
+  - tests/async_engine
+  - tests/test_inputs.py
+  - tests/test_outputs.py
+  - tests/multimodal
+  - tests/utils_
+  - tests/worker
+  - tests/standalone_tests/lazy_imports.py
+  commands:
+  - python3 standalone_tests/lazy_imports.py
+  - COVERAGE_FILE=.coverage.mq_llm_engine pytest -v -s --cov=vllm --cov-report= mq_llm_engine
+  - COVERAGE_FILE=.coverage.async_engine pytest -v -s --cov=vllm --cov-report= async_engine
+  - COVERAGE_FILE=.coverage.test_inputs pytest -v -s --cov=vllm --cov-report= test_inputs.py
+  - COVERAGE_FILE=.coverage.test_outputs pytest -v -s --cov=vllm --cov-report= test_outputs.py
+  - COVERAGE_FILE=.coverage.multimodal pytest -v -s --cov=vllm --cov-report= multimodal
+  - COVERAGE_FILE=.coverage.utils pytest -v -s --cov=vllm --cov-report= utils_
+  - COVERAGE_FILE=.coverage.worker pytest -v -s --cov=vllm --cov-report= worker
+
+- label: "Basic Correctness Test (Coverage)" # 30min
+  mirror_hardwares: [amdexperimental]
+  fast_check: true
+  torch_nightly: true
+  source_file_dependencies:
+  - vllm/
+  - tests/basic_correctness/test_basic_correctness
+  - tests/basic_correctness/test_cpu_offload
+  - tests/basic_correctness/test_preemption
+  - tests/basic_correctness/test_cumem.py
+  commands:
+  - export VLLM_WORKER_MULTIPROC_METHOD=spawn
+  - COVERAGE_FILE=.coverage.cumem pytest -v -s --cov=vllm --cov-report= basic_correctness/test_cumem.py
+  - COVERAGE_FILE=.coverage.basic_correctness pytest -v -s --cov=vllm --cov-report= basic_correctness/test_basic_correctness.py
+  - COVERAGE_FILE=.coverage.cpu_offload pytest -v -s --cov=vllm --cov-report= basic_correctness/test_cpu_offload.py
+  - COVERAGE_FILE=.coverage.preemption VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 pytest -v -s --cov=vllm --cov-report= basic_correctness/test_preemption.py
+
+- label: "Combine Coverage Reports"
+  depends_on: 
+  - "Core Test (Coverage)"
+  - "Async Engine, Inputs, Utils, Worker Test (Coverage)" 
+  - "Basic Correctness Test (Coverage)"
+  mirror_hardwares: [amdexperimental]
+  commands:
+  - pip install coverage
+  - coverage combine .coverage.*
+  - coverage report --show-missing
+  - coverage html -d coverage_html_report
+  - coverage xml -o coverage.xml
+  - echo "Coverage report generated in coverage_html_report/ and coverage.xml"
